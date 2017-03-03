@@ -69,14 +69,22 @@ print filtered_cloud
 
 #######################################
 ##segment the chosen objects --> cylinders
-seg = filtered_cloud.make_segmenter()
-seg.set_model_type(pcl.SACMODEL_PLANE)
-seg.set_method_type(pcl.SAC_RANSAC )
-seg.set_distance_threshold(100.0)
+seg = filtered_cloud.make_segmenter_normals(ksearch=50)
+
+
+
+seg.set_optimize_coefficients(True)
+seg.set_model_type(pcl.SACMODEL_CYLINDER)
+seg.set_normal_distance_weight(0.1)
+seg.set_method_type(pcl.SAC_RANSAC)
+seg.set_max_iterations(1000)
+seg.set_distance_threshold(30)  #the lower the number is, the more stuff it will take out
+seg.set_radius_limits(0, 0.1) #what do you think the radius of the pole is?
+
 segmented_indices, model = seg.segment()
 # print segmented_indices
 
-#return just cylinder segments
+#return just cylinder segments - FEATURE EXTRACTION
 filtered_cloud = filtered_cloud.extract(segmented_indices, negative=False)
 print filtered_cloud
 ##################################
@@ -84,6 +92,7 @@ print filtered_cloud
 ##need to remove largely connected components --> likely mountains in background/road
 kd = filtered_cloud.make_kdtree_flann()
 indices, sqr_distances = kd.nearest_k_search_for_cloud(filtered_cloud, 1000)
+print 'here'
 
 distances = np.sum(sqr_distances, axis=1)
 
@@ -101,15 +110,6 @@ print filtered_cloud
 ##need to generate 2d scalar image
 
 ##segment the chosen objects --> cylinders
-seg = filtered_cloud.make_segmenter()
-# seg.set_model_type(pcl.SACMODEL_CYLINDER)
-# seg.set_method_type(pcl.SAC_LMEDS )
-# segmented_indices, model = seg.segment()
-# print segmented_indices
-
-#return just cylinder segments
-# filtered_cloud = filtered_cloud.extract(segmented_indices, negative=False)
-print filtered_cloud
 
 
 new_X = []
