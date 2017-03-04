@@ -84,7 +84,6 @@ filtered_cloud = filtered_cloud.extract(remove_unique_indices, negative=True)
 print "filtered cloud without large components"
 print filtered_cloud
 
-##need to generate 2d scalar image
 
 #######################################
 ##segment the chosen objects --> cylinders
@@ -105,6 +104,17 @@ filtered_cloud = filtered_cloud.extract(segmented_indices, negative=False)
 print "filtered cloud after segmentation"
 print filtered_cloud
 #################################
+
+
+#TRYING TO TAKE OUT THE PLANE
+###############################################
+fil = filtered_cloud.make_passthrough_filter()
+fil.set_filter_field_name("x")
+fil.set_filter_limits(0, 4364071.0)
+filtered_cloud = fil.filter()
+print "filtered cloud without plane"
+print filtered_cloud
+##################################################
 
 final = open('final.obj', 'w')
 
