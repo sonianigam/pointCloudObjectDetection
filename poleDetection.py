@@ -1,26 +1,54 @@
 import pcl
 import numpy as np
-import matplotlib.pyplot as plt
-from mayavi.mlab import *
-from sklearn.cluster import DBSCAN
+import math
 
 csv = open('final_project_data/final_project_point_cloud.fuse', 'rb')
 point_info = []
-X = []
-Y = []
-Z = []
+point_cloud_display = []
+
+
+def cartesian(lat,lon, elevation):
+    cosLat = math.cos(lat * math.pi / 180.0)
+    sinLat = math.sin(lat * math.pi / 180.0)
+    cosLon = math.cos(lon * math.pi / 180.0)
+    sinLon = math.sin(lon * math.pi / 180.0)
+    rad = 6378137.0 + elevation
+    f = 1.0 / 298.257224
+    C = 1.0 / math.sqrt(cosLat * cosLat + (1 - f) * (1 - f) * sinLat * sinLat)
+    S = (1.0 - f) * (1.0 - f) * C
+    h = 0.0
+    x = (rad * C + h) * cosLat * cosLon
+    y = (rad * C + h) * cosLat * sinLon
+    z = (rad * S + h) * sinLat
+    return x, y, z
+
+
+
 
 #file in form of: [latitude] [longitude] [altitude] [intensity]
 for line in csv:
     r = line.strip().split(' ')
     point = []
-    point.append(float(r[0]))
-    X.append(float(r[0]))
-    point.append(float(r[1]))
-    Y.append(float(r[1]))
-    point.append(float(r[2]))
-    Z.append(float(r[2]))
+    x, y, z = cartesian(float(r[0]), float(r[1]), float(r[2]))
+    point.append(x)
+    point.append(y)
+    point.append(z)
     point_info.append(point)
+
+initial = open('pointcloud.obj', 'w')
+
+# line1 = "mtllib ./vp.mtl"
+# initial.write(line1)
+# initial.write("\n")
+
+for point in point_info:
+    line = "v " + str(point[0]) + " " + str(point[1]) + " "+ str(point[2])
+    initial.write(line)
+    initial.write("\n")
+
+initial.close()
+
+
 
 ##this is the passage we need to follow for filtering
 '''
@@ -46,12 +74,10 @@ components with area under a threshold to find small
 objects. This method is effective at finding isolated poles,
 but performs worse for cars and objects amongst clutter.
 '''
-
 #make point cloud from fuse file data
 point_info = np.array(point_info, dtype=np.float32)
 p = pcl.PointCloud()
 p.from_array(point_info)
-print p
 
 ##remove points close to the ground (not sure this is necessary) -- revisit at the end
 
@@ -63,16 +89,36 @@ filter1.set_std_dev_mul_thresh(5.0)
 filter1.set_negative(False)
 filtered_cloud = filter1.filter()
 
+print "Filtered without outliers"
 print filtered_cloud 
+
+##need to generate 2d scalar image
+
+##need to remove largely connected components --> likely mountains in background/road
+kd = filtered_cloud.make_kdtree_flann()
+indices, sqr_distances = kd.nearest_k_search_for_cloud(filtered_cloud, 1000)
+
+distances = np.sum(sqr_distances, axis=1)
+remove_indices = []
+print "distance max and min"
+print max(distances)
+print min(distances)
+for i in xrange(np.shape(distances)[0]):
+    if distances[i] < 10000.0:
+        remove_indices.extend(indices[i])
+
+remove_unique_indices = list(set(remove_indices))
+"the len of large components to be removed"
+print len(remove_unique_indices)
+filtered_cloud = filtered_cloud.extract(remove_unique_indices, negative=True)
+print "filtered cloud without large components"
+print filtered_cloud
 
 ##need to generate 2d scalar image
 
 #######################################
 ##segment the chosen objects --> cylinders
 seg = filtered_cloud.make_segmenter_normals(ksearch=50)
-
-
-
 seg.set_optimize_coefficients(True)
 seg.set_model_type(pcl.SACMODEL_CYLINDER)
 seg.set_normal_distance_weight(0.1)
@@ -86,40 +132,18 @@ segmented_indices, model = seg.segment()
 
 #return just cylinder segments - FEATURE EXTRACTION
 filtered_cloud = filtered_cloud.extract(segmented_indices, negative=False)
+print "filtered cloud after segmentation"
 print filtered_cloud
 ##################################
 
-##need to remove largely connected components --> likely mountains in background/road
-kd = filtered_cloud.make_kdtree_flann()
-indices, sqr_distances = kd.nearest_k_search_for_cloud(filtered_cloud, 1000)
-print 'here'
+final = open('final.obj', 'w')
 
-distances = np.sum(sqr_distances, axis=1)
+# line1 = "mtllib ./vp.mtl"
+# initial.write(line1)
+# initial.write("\n")
 
-remove_indices = []
+for point in filtered_cloud:
+    line = "v " + str(point[0]) + " " + str(point[1]) + " "+ str(point[2])
+    final.write(line)
+    final.write("\n")
 
-for i in xrange(np.shape(distances)[0]):
-    if distances[i] < 1.0:
-        remove_indices.extend(indices[i])
-
-remove_unique_indices = list(set(remove_indices))
-print len(remove_unique_indices)
-filtered_cloud = filtered_cloud.extract(remove_unique_indices, negative=True)
-print filtered_cloud
-
-##need to generate 2d scalar image
-
-##segment the chosen objects --> cylinders
-
-
-new_X = []
-new_Y = []
-new_Z = []
-for x in filtered_cloud:
-    new_X.append(x[0])
-    new_Y.append(x[1])
-    new_Z.append(x[2])
-
-plt.tripcolor(new_X,new_Y,new_Z, cmap = 'Greens')
-plt.plot(new_X,new_Y, '.')
-plt.show()
