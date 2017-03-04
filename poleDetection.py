@@ -22,9 +22,6 @@ def cartesian(lat,lon, elevation):
     z = (rad * S + h) * sinLat
     return x, y, z
 
-
-
-
 #file in form of: [latitude] [longitude] [altitude] [intensity]
 for line in csv:
     r = line.strip().split(' ')
@@ -48,37 +45,10 @@ for point in point_info:
 
 initial.close()
 
-
-
-##this is the passage we need to follow for filtering
-'''
-Our first step is to remove points that clearly are not part
-of small objects. We filter out points close to the ground,
-which is estimated at uniformly spaced positions with iterative
-plane fitting. We then remove isolated points. Finally,
-we filter out points likely to belong to buildings by removing
-very large connected components. Once these filters
-have been run, we proceed with one of four approaches to
-find potential object locations.
-
-Since objects of interest are likely to rise above their local
-surroundings, a simple approach to finding potential object
-locations is to generate a 2D scalar image representing
-the "height" of the point cloud, and performing image processing
-operations to find local maxima. We experimented
-with several variations of this approach. The most successful
-variant is to generate an image using the maximum
-height of the points in each pixel, run a difference of Gaussian
-filters to find high frequencies, and then extract connected
-components with area under a threshold to find small
-objects. This method is effective at finding isolated poles,
-but performs worse for cars and objects amongst clutter.
-'''
 #make point cloud from fuse file data
 point_info = np.array(point_info, dtype=np.float32)
 p = pcl.PointCloud()
 p.from_array(point_info)
-
 ##remove points close to the ground (not sure this is necessary) -- revisit at the end
 
 #removes outlier data based on KNN
@@ -104,7 +74,7 @@ print "distance max and min"
 print max(distances)
 print min(distances)
 for i in xrange(np.shape(distances)[0]):
-    if distances[i] < 10000.0:
+    if distances[i] < 5000.0:
         remove_indices.extend(indices[i])
 
 remove_unique_indices = list(set(remove_indices))
@@ -124,8 +94,8 @@ seg.set_model_type(pcl.SACMODEL_CYLINDER)
 seg.set_normal_distance_weight(0.1)
 seg.set_method_type(pcl.SAC_RANSAC)
 seg.set_max_iterations(1000)
-seg.set_distance_threshold(30)  #the lower the number is, the more stuff it will take out
-seg.set_radius_limits(0, 0.1) #what do you think the radius of the pole is?
+seg.set_distance_threshold(20)  #the lower the number is, the more stuff it will take out
+seg.set_radius_limits(0, 10) #what do you think the radius of the pole is?
 
 segmented_indices, model = seg.segment()
 # print segmented_indices
@@ -134,7 +104,7 @@ segmented_indices, model = seg.segment()
 filtered_cloud = filtered_cloud.extract(segmented_indices, negative=False)
 print "filtered cloud after segmentation"
 print filtered_cloud
-##################################
+#################################
 
 final = open('final.obj', 'w')
 
