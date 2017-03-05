@@ -105,6 +105,19 @@ print "filtered cloud after segmentation"
 print filtered_cloud
 #################################
 
+seg = filtered_cloud.make_segmenter_normals(ksearch=50)
+seg.set_optimize_coefficients(True)
+seg.set_model_type(pcl.SACMODEL_PLANE)
+seg.set_method_type(pcl.SAC_RANSAC)
+seg.set_normal_distance_weight(0.1)
+seg.set_distance_threshold(85)  #the lower the number is, the more stuff it will take out
+seg.set_max_iterations(100)
+indices, model = seg.segment()
+
+filtered_cloud = filtered_cloud.extract(indices, negative=True)
+print "filtered cloud without plane 2.0"
+print filtered_cloud
+
 
 #TRYING TO TAKE OUT THE PLANE
 ###############################################
@@ -115,6 +128,7 @@ filtered_cloud = fil.filter()
 print "filtered cloud without plane"
 print filtered_cloud
 ##################################################
+
 
 final = open('final.obj', 'w')
 
